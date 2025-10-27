@@ -42,7 +42,7 @@ class TranslatorUI:
             self.layout,
             console=self.console,
             refresh_per_second=4,  # 每秒刷新4次
-            screen=True
+            screen=False
         )
         self.live.start()
 

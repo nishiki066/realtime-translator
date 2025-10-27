@@ -77,6 +77,7 @@ class RealtimeClient:
         except Exception as e:
             logger.error(f"连接失败: {e}")
             raise
+
     def _on_open(self, ws):
         """连接建立回调"""
         self.is_connected = True
@@ -152,15 +153,98 @@ class RealtimeClient:
         config = {
             "type": "session.update",
             "session": {
-                "modalities": ["text"],  # 只要文本输出
+                "modalities": ["text", "audio"],  # 同时支持文本和音频
                 "instructions": instructions,
                 "input_audio_format": "pcm16",
+                "output_audio_format": "pcm16",
+                "input_audio_transcription": {  # 强制启用输入音频转写
+                    "model": "whisper-1"
+                },
                 "turn_detection": vad_config
             }
         }
 
         logger.info("发送会话配置...")
+        logger.debug(f"配置内容: {config}")
         return self.send_message(config)
+
+    def commit_audio_buffer(self):
+        """
+        手动提交音频缓冲区
+        用于强制触发转写和翻译，即使没有检测到静音
+
+        Returns:
+            bool: 是否成功提交
+        """
+        message = {
+            "type": "input_audio_buffer.commit"
+        }
+        success = self.send_message(message)
+
+        if success:
+            logger.info("✓ 手动提交音频缓冲")
+
+            # 提交后立即创建响应
+            self.create_response()
+
+        return success
+
+    def create_response(self):
+        """
+        创建响应（触发转写和翻译）
+
+        Returns:
+            bool: 是否成功创建响应
+        """
+        message = {
+            "type": "response.create",
+            "response": {
+                "modalities": ["text"]
+            }
+        }
+        success = self.send_message(message)
+
+        if success:
+            logger.debug("✓ 创建响应请求")
+
+        return success
+
+    def clear_audio_buffer(self):
+        """
+        清空音频缓冲区
+        用于丢弃未处理的音频（可选功能）
+
+        Returns:
+            bool: 是否成功清空
+        """
+        message = {
+            "type": "input_audio_buffer.clear"
+        }
+        success = self.send_message(message)
+
+        if success:
+            logger.info("✓ 清空音频缓冲")
+
+        return success
+
+    def cancel_response(self):
+        """
+        取消当前正在进行的响应
+        用于中断长时间运行的翻译（可选功能）
+
+        Returns:
+            bool: 是否成功取消
+        """
+        message = {
+            "type": "response.cancel"
+        }
+        success = self.send_message(message)
+
+        if success:
+            logger.info("✓ 取消当前响应")
+
+        return success
+
     def disconnect(self):
         """断开连接"""
         logger.info("正在断开 WebSocket 连接...")

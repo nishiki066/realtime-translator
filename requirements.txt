@@ -1,0 +1,14 @@
+# WebSocket 客户端
+websocket-client==1.6.4
+
+# 音频处理
+pyaudio==0.2.14
+
+# 环境变量管理
+python-dotenv==1.0.0
+
+# 终端美化
+rich==13.7.0
+
+# 日志
+loguru==0.7.2

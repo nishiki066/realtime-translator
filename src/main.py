@@ -10,6 +10,8 @@ from src.audio.recorder import AudioRecorder
 from src.audio.processor import AudioProcessor
 from src.realtime.client import RealtimeClient
 from src.realtime.events import EventHandler
+from src.ui.display import TranslatorUI
+
 
 
 class RealtimeTranslator:
@@ -23,8 +25,15 @@ class RealtimeTranslator:
         config.validate()
 
         # 创建各个组件
+        self.ui = TranslatorUI()
+
+        # 2. 创建音频处理器
         self.processor = AudioProcessor()
-        self.event_handler = EventHandler()
+
+        # 3. 创建事件处理器（传入 UI）
+        self.event_handler = EventHandler(ui=self.ui)
+
+
 
         self.recorder = AudioRecorder(
             sample_rate=config.SAMPLE_RATE,
@@ -45,7 +54,7 @@ class RealtimeTranslator:
     def start(self):
         """启动翻译器"""
         try:
-            # 显示欢迎信息
+            # 显示欢迎信息（在启动 UI 之前）
             self._show_banner()
 
             # 连接到 API
@@ -67,17 +76,17 @@ class RealtimeTranslator:
                 vad_config=vad_config
             )
 
-            # 等待配置完成
             time.sleep(1)
             print("✓ 配置完成！")
+            print(f"\n翻译方向: {config.SOURCE_LANGUAGE} → {config.TARGET_LANGUAGE}")
+            print("正在启动界面...\n")
+
+            time.sleep(2)  # 给用户看提示信息
+
+            # 启动 UI
+            self.ui.start()
 
             # 开始录音
-            print("\n开始录音和翻译...")
-            print(f"翻译方向: {config.SOURCE_LANGUAGE} → {config.TARGET_LANGUAGE}")
-            print("请对着麦克风说话...")
-            print("按 Ctrl+C 停止\n")
-            print("=" * 60)
-
             self.recorder.start()
             self.is_running = True
 
@@ -85,15 +94,29 @@ class RealtimeTranslator:
             self._audio_send_loop()
 
         except KeyboardInterrupt:
-            print("\n\n正在停止...")
             self.stop()
-            print("✓ 已停止")
 
         except Exception as e:
             logger.error(f"运行出错: {e}")
-            print(f"\n❌ 错误: {e}")
             self.stop()
             sys.exit(1)
+
+    def stop(self):
+        """停止翻译器"""
+        logger.info("停止翻译器...")
+
+        self.is_running = False
+
+        # 停止录音
+        self.recorder.stop()
+
+        # 断开连接
+        self.client.disconnect()
+
+        # 停止 UI
+        self.ui.stop()
+
+        logger.info("✓ 翻译器已停止")
 
     def _audio_send_loop(self):
         """音频发送循环"""
